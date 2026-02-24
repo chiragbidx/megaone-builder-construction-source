@@ -6,17 +6,29 @@ import { startGitPoll } from "./git-poll.js";
 const BRANCH = process.env.PREVIEW_BRANCH || "main";
 const REPO_URL = process.env.REPO_URL;
 
+if (!REPO_URL) {
+  throw new Error("REPO_URL env var is required for static preview");
+}
+
 process.chdir("/app"); // 🔑 FORCE cwd
 
 console.log("[supervisor] ensuring git repo");
 
+const run = (cmd) => execSync(cmd, { stdio: "inherit", cwd: "/app" });
+
 if (!fs.existsSync(".git")) {
-  execSync("git init", { stdio: "inherit", cwd: "/app" });
-  execSync(`git remote add origin ${REPO_URL}`, { stdio: "inherit", cwd: "/app" });
-  execSync("git fetch origin --depth=1", { stdio: "inherit", cwd: "/app" });
-  execSync(`git reset --hard origin/${BRANCH}`, { stdio: "inherit", cwd: "/app" });
-  execSync("git clean -fd", { stdio: "inherit", cwd: "/app" });
+  run("git init");
+  run(`git remote add origin ${REPO_URL}`);
+} else {
+  const remotes = execSync("git remote", { cwd: "/app" }).toString();
+  if (!remotes.split("\n").includes("origin")) {
+    run(`git remote add origin ${REPO_URL}`);
+  }
 }
+
+run("git fetch origin --depth=1");
+run(`git reset --hard origin/${BRANCH}`);
+run("git clean -fd");
 
 console.log("[supervisor] static preview running");
 
